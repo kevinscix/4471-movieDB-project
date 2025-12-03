@@ -23,13 +23,15 @@ def create_app() -> Flask:
     if not omdb_api_key:
         raise RuntimeError("OMDB_API_KEY environment variable is required")
 
+    tmdb_api_key = os.getenv("TMDB_API_KEY")
+
     cache_client = initialise_cache(app.logger)
 
     app.register_blueprint(create_search_blueprint(cache_client, omdb_api_key))
     app.register_blueprint(create_movie_blueprint(cache_client, omdb_api_key))
     app.register_blueprint(create_ratings_blueprint(cache_client, omdb_api_key))
-    app.register_blueprint(create_genre_blueprint(cache_client, omdb_api_key))
-    app.register_blueprint(create_boxoffice_blueprint(cache_client, omdb_api_key))
+    app.register_blueprint(create_genre_blueprint(cache_client, omdb_api_key, tmdb_api_key))
+    app.register_blueprint(create_boxoffice_blueprint(cache_client, omdb_api_key, tmdb_api_key))
 
     @app.before_request
     def _assign_request_id() -> None:

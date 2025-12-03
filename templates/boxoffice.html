@@ -289,10 +289,10 @@
                     data.cached ? " (cached dataset)" : ""
                 }`;
             }
-            (data.results || []).forEach((item, idx) => {
+            (data.results || []).slice(0, data.per_page || perPage).forEach((item, idx) => {
                 const img =
                     item.poster && item.poster !== "N/A"
-                        ? `<img src="${item.poster}" alt="${item.title} poster" />`
+                        ? (item.imdbID ? `<a class="poster-link" href="/movie/${item.imdbID}/view"><img src="${item.poster}" alt="${item.title} poster" /></a>` : `<img src="${item.poster}" alt="${item.title} poster" />`)
                         : "";
                 const startIndex = (currentBoxOfficePage - 1) * perPage;
                 const rankNumber = startIndex + idx + 1;

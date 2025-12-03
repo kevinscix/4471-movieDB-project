@@ -143,6 +143,20 @@
             font-size: 0.9rem;
         }
 
+        .poster-link {
+            display: block;
+        }
+
+        .poster-link img {
+            width: 100%;
+            border-radius: 4px;
+            transition: transform 0.2s ease;
+            object-fit: cover;
+        }
+
+        .poster-link:hover img {
+            transform: scale(1.02);
+        }
         .pagination {
             display: flex;
             justify-content: flex-end;
@@ -199,11 +213,23 @@
                             {% endfor %}
                         </select>
                         <input id="genre-rating" type="number" step="0.1" min="0" max="10" placeholder="Min IMDb rating" />
-                        <input id="genre-language" type="text" placeholder="Language" />
+                    <select id="genre-language">
+                        <option value="">Any language</option>
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="hi">Hindi</option>
+                        <option value="ja">Japanese</option>
+                        <option value="ko">Korean</option>
+                        <option value="zh">Chinese</option>
+                    </select>
                         <input id="genre-year" type="text" placeholder="Year" />
                         <select id="genre-sort">
                             <option value="rating_desc">Rating: High to Low</option>
                             <option value="rating_asc">Rating: Low to High</option>
+                            <option value="boxoffice_desc">Box Office: High to Low</option>
+                            <option value="boxoffice_asc">Box Office: Low to High</option>
                             <option value="year_desc">Year: New to Old</option>
                             <option value="year_asc">Year: Old to New</option>
                             <option value="title_asc">Title: A-Z</option>
@@ -327,14 +353,11 @@
                     data.cached ? " (cached)" : ""
                 }`;
             }
-            (data.results || []).forEach((m) => {
+            (data.results || []).slice(0, data.per_page || 10).forEach((m) => {
                 const img =
                     m.poster && m.poster !== "N/A"
-                        ? `<img src="${m.poster}" alt="${m.title} poster" />`
+                        ? (m.imdbID ? `<a class="poster-link" href="/movie/${m.imdbID}/view"><img src="${m.poster}" alt="${m.title} poster" /></a>` : `<img src="${m.poster}" alt="${m.title} poster" />`)
                         : "";
-                const detailLink = m.imdbID
-                    ? `<p><a href="/movie/${m.imdbID}/view">View details</a></p>`
-                    : "";
                 container.appendChild(
                     renderCard(`${m.title || "Untitled"} (${m.year || "N/A"})`, `
                         ${img}
@@ -342,7 +365,6 @@
                         <p><strong>Average Rating:</strong> ${m.average_rating ?? m.imdbRating ?? "N/A"}</p>
                         <p><strong>Box Office:</strong> ${m.boxOffice || "N/A"}</p>
                         <p><strong>Language:</strong> ${m.language || "N/A"}</p>
-                        ${detailLink}
                     `)
                 );
             });
@@ -363,7 +385,7 @@
                 return;
             }
             const rating = $("genre-rating").value.trim();
-            const language = $("genre-language").value.trim();
+            const language = $("genre-language").value;
             const year = $("genre-year").value.trim();
             const sort = $("genre-sort").value;
 
