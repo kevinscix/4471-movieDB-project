@@ -6,6 +6,10 @@ from flask import Blueprint, current_app, jsonify, request
 from services.omdb import BOX_OFFICE_SEED_TERMS, DEFAULT_BOX_OFFICE_IDS, GENRE_CURATED_IDS, average_rating, expand_search_terms, extract_ratings, fetch_movie_details, omdb_search_request, parse_box_office_value, parse_int_param
 from utils.cache import fetch_from_cache, store_in_cache
 
+BOX_OFFICE_PAGE_SIZE = 10
+BOX_OFFICE_MAX_PAGES = 10
+BOX_OFFICE_RESULT_LIMIT = BOX_OFFICE_PAGE_SIZE * BOX_OFFICE_MAX_PAGES
+
 
 def create_boxoffice_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
     bp = Blueprint("boxoffice", __name__, url_prefix="/api")
@@ -13,8 +17,13 @@ def create_boxoffice_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
     @bp.route("/boxoffice/top")
     def box_office_top() -> Any:
         query = request.args.get("q", "").strip()
-        page = parse_int_param(request.args.get("page"), 1, minimum=1, maximum=20)
-        per_page = parse_int_param(request.args.get("per_page"), 10, minimum=5, maximum=20)
+        page = parse_int_param(request.args.get("page"), 1, minimum=1, maximum=BOX_OFFICE_MAX_PAGES)
+        per_page = parse_int_param(
+            request.args.get("per_page"),
+            BOX_OFFICE_PAGE_SIZE,
+            minimum=BOX_OFFICE_PAGE_SIZE,
+            maximum=BOX_OFFICE_PAGE_SIZE,
+        )
         genre_filter = (request.args.get("genre") or "").strip()
         sort_mode = request.args.get("sort") or "box_office_desc"
 
@@ -29,6 +38,8 @@ def create_boxoffice_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
             try:
                 data = cached_payload if isinstance(cached_payload, dict) else json.loads(cached_payload)
                 base_results = data.get("results", [])
+                if len(base_results) > BOX_OFFICE_RESULT_LIMIT:
+                    base_results = base_results[:BOX_OFFICE_RESULT_LIMIT]
                 dataset_cached = True
             except Exception:
                 current_app.logger.warning("Invalid cached box office dataset for %s", dataset_cache_key)
@@ -50,7 +61,7 @@ def create_boxoffice_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
                 seen_identifiers[key] = True
                 candidates.append(item)
 
-            def fetch_candidates(term: str, max_pages: int = 5, limit: int = 200) -> None:
+            def fetch_candidates(term: str, max_pages: int = 5, limit: int = BOX_OFFICE_RESULT_LIMIT) -> None:
                 for source_page in range(1, max_pages + 1):
                     if len(candidates) >= limit:
                         return
@@ -63,41 +74,73 @@ def create_boxoffice_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
                         add_candidate(entry)
 
             if query:
-                fetch_candidates(query, max_pages=5, limit=80)
+                fetch_candidates(query, max_pages=5, limit=BOX_OFFICE_RESULT_LIMIT)
             else:
                 for imdb_id in DEFAULT_BOX_OFFICE_IDS:
                     add_candidate({"imdbID": imdb_id})
+                # if genre_filter:
+                #     curated = GENRE_CURATED_IDS.get(genre_filter.lower())
+                #     if curated:
+                #         for imdb_id in curated:
+                #             add_candidate({"imdbID": imdb_id})
+                #     genre_terms = expand_search_terms(genre_filter) or [genre_filter]
+                #     genre_terms.extend(
+                #         [
+                #             f"{genre_filter} movie",
+                #             f"{genre_filter} film",
+                #             f"{genre_filter} blockbuster",
+                #         ]
+                #     )
+                #     seen_term: Dict[str, bool] = {}
+                #     dedup_terms: List[str] = []
+                #     for term in genre_terms:
+                #         normalized = term.lower()
+                #         if normalized and not seen_term.get(normalized):
+                #             seen_term[normalized] = True
+                #             dedup_terms.append(term)
+                #     for term in dedup_terms:
+                #         fetch_candidates(term, max_pages=5, limit=BOX_OFFICE_RESULT_LIMIT)
+                # else:
+                #     for seed in BOX_OFFICE_SEED_TERMS:
+                #         fetch_candidates(seed, max_pages=4, limit=BOX_OFFICE_RESULT_LIMIT)
                 if genre_filter:
                     curated = GENRE_CURATED_IDS.get(genre_filter.lower())
                     if curated:
                         for imdb_id in curated:
                             add_candidate({"imdbID": imdb_id})
-                    genre_terms = expand_search_terms(genre_filter) or [genre_filter]
-                    genre_terms.extend(
-                        [
-                            f"{genre_filter} movie",
-                            f"{genre_filter} film",
-                            f"{genre_filter} blockbuster",
-                        ]
-                    )
-                    seen_term: Dict[str, bool] = {}
-                    dedup_terms: List[str] = []
-                    for term in genre_terms:
-                        normalized = term.lower()
-                        if normalized and not seen_term.get(normalized):
-                            seen_term[normalized] = True
-                            dedup_terms.append(term)
-                    for term in dedup_terms:
-                        fetch_candidates(term, max_pages=5, limit=250)
+
+                    # FAST PATH: if we already have enough candidates from defaults + curated,
+                    # skip expensive OMDb "s=" search.
+                    MIN_DATASET_SIZE = BOX_OFFICE_PAGE_SIZE * 2  # 2 pages worth
+                    if len(candidates) < MIN_DATASET_SIZE:
+                        genre_terms = expand_search_terms(genre_filter) or [genre_filter]
+                        genre_terms.extend(
+                            [
+                                f"{genre_filter} movie",
+                                f"{genre_filter} film",
+                                f"{genre_filter} blockbuster",
+                            ]
+                        )
+                        seen_term = {}
+                        dedup_terms = []
+                        for term in genre_terms:
+                            normalized = term.lower()
+                            if normalized and not seen_term.get(normalized):
+                                seen_term[normalized] = True
+                                dedup_terms.append(term)
+                        for term in dedup_terms:
+                            fetch_candidates(term, max_pages=5, limit=BOX_OFFICE_RESULT_LIMIT)
                 else:
                     for seed in BOX_OFFICE_SEED_TERMS:
-                        fetch_candidates(seed, max_pages=4, limit=250)
+                        fetch_candidates(seed, max_pages=4, limit=BOX_OFFICE_RESULT_LIMIT)
 
             base_results = []
             for candidate in candidates:
                 identifier = candidate.get("imdbID") or candidate.get("Title")
                 if not identifier:
                     continue
+                if len(base_results) >= BOX_OFFICE_RESULT_LIMIT:
+                    break
                 detail, detail_cached, _ = fetch_movie_details(cache_client, omdb_api_key, identifier)
                 if not detail:
                     continue
@@ -127,6 +170,8 @@ def create_boxoffice_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
                 )
 
             base_results.sort(key=lambda item: item["box_office"], reverse=True)
+            if len(base_results) > BOX_OFFICE_RESULT_LIMIT:
+                base_results = base_results[:BOX_OFFICE_RESULT_LIMIT]
             store_in_cache(cache_client, dataset_cache_key, {"results": base_results})
 
         filtered_results = list(base_results)
@@ -163,28 +208,19 @@ def create_boxoffice_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
 
         if genre_filter and not query:
             curated_ids = GENRE_CURATED_IDS.get(genre_filter.lower(), [])[:10]
-            curated_lookup = {imdb_id.lower(): idx for idx, imdb_id in enumerate(curated_ids)}
-            curated_results: List[Dict[str, Any]] = []
-            curated_seen: Dict[str, bool] = {}
-            for imdb_id in curated_ids:
-                match = next(
-                    (
-                        item
-                        for item in filtered_results
-                        if (item.get("imdbID") or "").lower() == imdb_id.lower()
-                    ),
-                    None,
-                )
-                if match and not curated_seen.get(imdb_id.lower()):
-                    curated_results.append(match)
-                    curated_seen[imdb_id.lower()] = True
-            remaining_results = [
-                item
-                for item in filtered_results
-                if (item.get("imdbID") or "").lower() not in curated_seen
-            ]
-            filtered_results = curated_results + remaining_results
-
+            curated_set = {imdb_id.lower() for imdb_id in curated_ids}
+            if curated_set:
+                curated_results: List[Dict[str, Any]] = []
+                remaining_results: List[Dict[str, Any]] = []
+                for item in filtered_results:
+                    imdb_id = (item.get("imdbID") or "").lower()
+                    if imdb_id in curated_set:
+                        curated_results.append(item)
+                    else:
+                        remaining_results.append(item)
+                # Curated stay in the same order they had after sorting
+                filtered_results = curated_results + remaining_results
+                
         total_count = len(filtered_results)
         if not total_count:
             page = 1
