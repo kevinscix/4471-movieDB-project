@@ -20,7 +20,7 @@ def create_genre_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
                 400,
             )
 
-        detail, cached_detail = fetch_movie_details(cache_client, omdb_api_key, identifier.strip())
+        detail, cached_detail, _ = fetch_movie_details(cache_client, omdb_api_key, identifier.strip())
         if not detail:
             return jsonify({"error": "Movie not found."}), 404
 
@@ -151,7 +151,7 @@ def create_genre_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
             key = identifier.lower()
             if seen_details.get(key):
                 continue
-            detail, _ = fetch_movie_details(cache_client, omdb_api_key, identifier)
+            detail, _, _ = fetch_movie_details(cache_client, omdb_api_key, identifier)
             if not detail:
                 continue
             genre_field = detail.get("Genre", "") or ""

@@ -56,7 +56,7 @@ def create_ratings_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
                 except Exception:
                     current_app.logger.warning("Invalid rating summary cache for %s", target)
 
-            detail, detail_cached = fetch_movie_details(cache_client, omdb_api_key, target)
+            detail, detail_cached, _ = fetch_movie_details(cache_client, omdb_api_key, target)
             if not detail:
                 errors.append({"target": target, "error": "Movie not found or unavailable."})
                 continue

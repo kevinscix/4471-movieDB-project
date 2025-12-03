@@ -11,9 +11,9 @@ def create_movie_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
 
     def _movie_payload(imdb_id: str) -> Any:
         identifier = imdb_id.strip()
-        detail, cached_detail = fetch_movie_details(cache_client, omdb_api_key, identifier)
+        detail, cached_detail, error_msg = fetch_movie_details(cache_client, omdb_api_key, identifier)
         if not detail:
-            return None, None
+            return None, error_msg
 
         ratings = extract_ratings(detail)
         avg_rating = average_rating(ratings)
@@ -68,7 +68,16 @@ def create_movie_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
     def movie_detail(imdb_id: str) -> Any:
         payload, error = _movie_payload(imdb_id)
         if payload is None:
-            return jsonify({"error": "Movie not found"}), 404
+            current_app.logger.warning(
+                "Movie not found: %s - %s",
+                imdb_id,
+                error or "Unknown error"
+            )
+            return jsonify({
+                "error": error or "Movie not found",
+                "imdbID": imdb_id,
+                "suggestion": "Verify IMDb ID format (e.g., tt0123456) or try searching by title"
+            }), 404
         return jsonify(payload)
 
     @bp.route("/movie/<imdb_id>/view")

@@ -314,13 +314,14 @@ def omdb_search_request(
 
 def fetch_movie_details(
     cache_client: Optional["redis.Redis"], omdb_api_key: str, identifier: str
-) -> Tuple[Optional[Dict[str, Any]], bool]:
+) -> Tuple[Optional[Dict[str, Any]], bool, Optional[str]]:
+    logger = logging.getLogger(__name__)
     cache_key = f"omdb:detail:{identifier.lower()}"
     if cache_client is not None:
         try:
             cached_payload = cache_client.get(cache_key)
             if cached_payload:
-                return json.loads(cached_payload), True
+                return json.loads(cached_payload), True, None
         except Exception:
             pass
 
@@ -334,20 +335,26 @@ def fetch_movie_details(
         response = requests.get(OMDB_BASE_URL, params=params, timeout=5)
         response.raise_for_status()
         payload = response.json()
-    except requests.exceptions.RequestException:
-        return None, False
-    except ValueError:
-        return None, False
+    except requests.exceptions.RequestException as e:
+        error_msg = "Network error while fetching movie details"
+        logger.warning("Failed to fetch movie details for %s: %s", identifier, str(e))
+        return None, False, error_msg
+    except ValueError as e:
+        error_msg = "Invalid response from OMDb API"
+        logger.warning("Failed to parse JSON for %s: %s", identifier, str(e))
+        return None, False, error_msg
 
     if payload.get("Response") != "True":
-        return None, False
+        error_msg = payload.get("Error", "Movie not found in OMDb database")
+        logger.warning("Movie not found in OMDb for %s: %s", identifier, error_msg)
+        return None, False, error_msg
 
     if cache_client is not None:
         try:
             cache_client.setex(cache_key, 600, json.dumps(payload))
         except Exception:
             pass
-    return payload, False
+    return payload, False, None
 
 
 def find_similar_movies(
@@ -372,7 +379,7 @@ def find_similar_movies(
         if not identifier or identifier in seen_ids:
             continue
         seen_ids.add(identifier)
-        detail, _ = fetch_movie_details(cache_client, omdb_api_key, identifier)
+        detail, _, _ = fetch_movie_details(cache_client, omdb_api_key, identifier)
         if not detail:
             continue
         ratings = extract_ratings(detail)

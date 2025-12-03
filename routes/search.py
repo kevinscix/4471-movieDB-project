@@ -146,7 +146,7 @@ def create_search_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
         enriched_results: List[Dict[str, Any]] = []
         for item in scored:
             identifier = item.get("imdbID") or item.get("title")
-            detail, _ = fetch_movie_details(cache_client, omdb_api_key, identifier)
+            detail, _, _ = fetch_movie_details(cache_client, omdb_api_key, identifier)
             if not detail:
                 continue
             if year_filter and str(detail.get("Year", "")).strip() != str(year_filter):

@@ -98,7 +98,7 @@ def create_boxoffice_blueprint(cache_client, omdb_api_key: str) -> Blueprint:
                 identifier = candidate.get("imdbID") or candidate.get("Title")
                 if not identifier:
                     continue
-                detail, detail_cached = fetch_movie_details(cache_client, omdb_api_key, identifier)
+                detail, detail_cached, _ = fetch_movie_details(cache_client, omdb_api_key, identifier)
                 if not detail:
                     continue
 
