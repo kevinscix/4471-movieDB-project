@@ -4,7 +4,7 @@ MovieDB Pressure Test using Locust
 This script simulates realistic user behavior on the MovieDB application,
 testing various endpoints with different load patterns.
 
-Usage:
+Usage - Local Testing:
     # Web UI mode (interactive dashboard at http://localhost:8089)
     locust -f tests/pressure_test.py --host http://localhost:8080
 
@@ -15,6 +15,22 @@ Usage:
     # High load test
     locust -f tests/pressure_test.py --host http://localhost:8080 \
         --users 200 --spawn-rate 10 --run-time 300s --headless
+
+Usage - Production Server Testing:
+    # Web UI mode
+    locust -f tests/pressure_test.py --host https://moviedb-web-246678747505.northamerica-northeast2.run.app
+
+    # Headless mode (automated test)
+    locust -f tests/pressure_test.py --host https://moviedb-web-246678747505.northamerica-northeast2.run.app \
+        --users 50 --spawn-rate 5 --run-time 60s --headless
+
+    # High load test (use with caution on production!)
+    locust -f tests/pressure_test.py --host https://moviedb-web-246678747505.northamerica-northeast2.run.app \
+        --users 200 --spawn-rate 10 --run-time 300s --headless
+
+    # Using different user classes
+    locust -f tests/pressure_test.py --host https://moviedb-web-246678747505.northamerica-northeast2.run.app ColdCacheUser
+    locust -f tests/pressure_test.py --host https://moviedb-web-246678747505.northamerica-northeast2.run.app QuickBurstUser
 """
 
 import random
@@ -260,8 +276,11 @@ class ColdCacheUser(HttpUser):
     This simulates worst-case scenario where cache is cold or expired.
     Use this to test OMDb API rate limits and timeout handling.
 
-    To use this user class instead:
+    To use this user class:
+        # Local
         locust -f tests/pressure_test.py --host http://localhost:8080 ColdCacheUser
+        # Production
+        locust -f tests/pressure_test.py --host https://moviedb-web-246678747505.northamerica-northeast2.run.app ColdCacheUser
     """
     wait_time = between(0.5, 1.5)
 
@@ -308,7 +327,10 @@ class QuickBurstUser(HttpUser):
     Quick burst testing - simulates rapid-fire requests with minimal wait time.
 
     To use:
+        # Local
         locust -f tests/pressure_test.py --host http://localhost:8080 QuickBurstUser
+        # Production
+        locust -f tests/pressure_test.py --host https://moviedb-web-246678747505.northamerica-northeast2.run.app QuickBurstUser
     """
     wait_time = between(0.1, 0.5)
 

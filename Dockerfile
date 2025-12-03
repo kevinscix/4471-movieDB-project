@@ -24,4 +24,5 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Run the Flask application with Gunicorn in production mode
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "--timeout", "120", "app:app"]
+# Use shell form to allow $PORT variable expansion
+CMD gunicorn --bind 0.0.0.0:$PORT --workers 4 --timeout 120 app:app
