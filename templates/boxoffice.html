@@ -127,6 +127,18 @@
             gap: 0.5rem;
         }
 
+        .movie-card .poster-link,
+        .movie-card img {
+            width: 100%;
+            display: block;
+        }
+
+        .movie-card img {
+            height: auto;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
         .status {
             margin: 0.5rem 0 1rem 0;
             color: #444;
@@ -285,9 +297,8 @@
                 status.textContent = "No results on this page. Try going back.";
             } else {
                 const totalPages = data.total_pages ?? Math.max(1, Math.ceil(totalRanked / perPage));
-                status.textContent = `${totalRanked} ranked item(s) — page ${currentBoxOfficePage}/${totalPages}${
-                    data.cached ? " (cached dataset)" : ""
-                }`;
+                status.textContent = `${totalRanked} ranked item(s) — page ${currentBoxOfficePage}/${totalPages}${data.cached ? " (cached dataset)" : ""
+                    }`;
             }
             (data.results || []).slice(0, data.per_page || perPage).forEach((item, idx) => {
                 const img =
