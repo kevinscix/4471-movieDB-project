@@ -1,0 +1,8 @@
+# Pressure Test Dependencies for MovieDB
+
+# Locust - Modern load testing framework
+locust>=2.20.0
+
+# Optional: For enhanced reporting and metrics
+# psutil>=5.9.0  # System resource monitoring
+# matplotlib>=3.8.0  # Chart generation for custom reports

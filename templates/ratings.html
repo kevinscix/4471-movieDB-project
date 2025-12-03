@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>MovieDB+ Ratings</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #f7f7f7;
+        }
+
+        h1 {
+            margin-bottom: 1rem;
+            color: #222;
+        }
+
+        h2 {
+            margin: 0 0 0.25rem 0;
+        }
+
+        header {
+            background: linear-gradient(90deg, #0f172a, #0b63b6);
+            color: #fff;
+            padding: 1.25rem 2rem 1rem 2rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        header .title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        nav {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: #e0ecff;
+            text-decoration: none;
+            padding: 0.4rem 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 999px;
+            font-size: 0.95rem;
+        }
+
+        nav a:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        nav a.active {
+            background: rgba(255, 255, 255, 0.18);
+            color: #fff;
+        }
+
+        main {
+            padding: 1.5rem 2rem 2rem;
+        }
+
+        .panel {
+            background: #fff;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .panel-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .inline-form {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin: 0;
+        }
+
+        .inline-form input[type="text"] {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #ratings-query {
+            flex: 2;
+            min-width: 320px;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            background-color: #0069c0;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #00549a;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+
+        .movie-card {
+            padding: 1rem;
+            background: #fff;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .movie-card img {
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+
+        .status {
+            margin: 0.5rem 0 1rem 0;
+            color: #444;
+        }
+
+        .note {
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="title-row">
+            <div>
+                <h1>MovieDB+ Ratings</h1>
+                <p>Aggregate IMDb, Rotten Tomatoes, and Metacritic summaries.</p>
+            </div>
+            <nav>
+                <a href="/search">Search</a>
+                <a href="/ratings" class="active">Ratings</a>
+                <a href="/genres">Genres</a>
+                <a href="/boxoffice">Box Office</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="panel" id="ratings">
+            <div class="panel-header">
+                <div>
+                    <h2>Rating Summary</h2>
+                    <p>Aggregated IMDb / Rotten Tomatoes / Metacritic ratings.</p>
+                </div>
+                <form id="ratings-form" class="inline-form">
+                    <input id="ratings-query" type="text" placeholder="Title(s) or IMDb ID(s), comma-separated" />
+                    <button type="submit">Fetch Ratings</button>
+                </form>
+            </div>
+            <div class="status" id="ratings-status"></div>
+            <div class="grid" id="ratings-results"></div>
+        </section>
+    </main>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+
+        const renderCard = (title, body) => {
+            const card = document.createElement("div");
+            card.className = "movie-card";
+            card.innerHTML = `<h3>${title}</h3>${body}`;
+            return card;
+        };
+
+        const fetchJson = async (url, options = {}) => {
+            const res = await fetch(url, options);
+            const data = await res.json();
+            return { ok: res.ok, data };
+        };
+
+        $("ratings-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const raw = $("ratings-query").value.trim();
+            const status = $("ratings-status");
+            const container = $("ratings-results");
+            container.innerHTML = "";
+            if (!raw) {
+                status.textContent = "Enter at least one title or IMDb ID.";
+                return;
+            }
+            const entries = raw.split(",").map((t) => t.trim()).filter(Boolean);
+            if (!entries.length) {
+                status.textContent = "Enter at least one valid title or ID.";
+                return;
+            }
+            status.textContent = "Loading ratings...";
+
+            const params = new URLSearchParams();
+            if (entries.length === 1) {
+                const target = entries[0];
+                const normalized = target.toLowerCase();
+                if (/^tt\d{3,}$/.test(normalized)) {
+                    params.set("imdbID", target);
+                } else {
+                    params.set("title", target);
+                }
+            } else {
+                params.set("titles", entries.join(","));
+            }
+
+            const { ok, data } = await fetchJson(`/api/ratings/summary?${params.toString()}`);
+            if (!ok) {
+                status.textContent = data.error || "Unable to fetch ratings.";
+                return;
+            }
+            if (!data.results || !data.results.length) {
+                status.textContent = "No ratings found for the provided input.";
+                return;
+            }
+            status.textContent = `Found ${data.count} item(s).`;
+            data.results.forEach((r) => {
+                const ratings = Object.entries(r.ratings || {})
+                    .map(([src, val]) => `<li>${src}: ${val ?? "N/A"}</li>`)
+                    .join("");
+                const poster =
+                    r.poster && r.poster !== "N/A"
+                        ? `<img src="${r.poster}" alt="${r.title || "Poster"}" />`
+                        : "";
+                container.appendChild(
+                    renderCard(`${r.title || "Unknown"} (${r.year || "N/A"})`, `
+                        ${poster}
+                        <p><strong>IMDb ID:</strong> ${r.imdbID || "N/A"}</p>
+                        <p><strong>Average:</strong> ${r.average ?? "N/A"}</p>
+                        <ul>${ratings}</ul>
+                        <p class="note">${r.cached ? "Cached" : "Live"} data</p>
+                    `)
+                );
+            });
+            if (data.errors) {
+                status.textContent += ` | ${data.errors.length} error(s).`;
+            }
+        });
+    </script>
+</body>
+
+</html>

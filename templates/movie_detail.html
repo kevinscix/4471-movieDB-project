@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>{{ movie.title }} - Movie Overview</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            color: #1f2933;
+        }
+
+        header {
+            background: linear-gradient(90deg, #0f172a, #0b63b6);
+            color: #fff;
+            padding: 1.25rem 2rem;
+        }
+
+        main {
+            padding: 2rem;
+            max-width: 1100px;
+            margin: auto;
+        }
+
+        a {
+            color: #0b63b6;
+        }
+
+        .breadcrumbs {
+            margin-top: 0.5rem;
+        }
+
+        .panel {
+            background: #fff;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .poster {
+            border-radius: 8px;
+            width: 100%;
+            height: auto;
+        }
+
+        .meta-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .meta-list li {
+            margin-bottom: 0.4rem;
+        }
+
+        .ratings-grid {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        .rating-card {
+            background: #eef2ff;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 180px;
+        }
+
+        .rating-main {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.3rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid #e3e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        .card img {
+            max-width: 100%;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+
+        .note {
+            font-size: 0.85rem;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>{{ movie.title }} ({{ movie.year or "N/A" }})</h1>
+        <div class="breadcrumbs">
+            <a href="/">← Back to dashboard</a>
+        </div>
+    </header>
+
+    <main>
+        <section class="panel summary">
+            <div class="summary-grid">
+                {% if movie.poster and movie.poster != "N/A" %}
+                <img class="poster" src="{{ movie.poster }}" alt="{{ movie.title }} poster" />
+                {% endif %}
+                <div>
+                    <ul class="meta-list">
+                        <li><strong>Release:</strong> {{ movie.released or "N/A" }}</li>
+                        <li><strong>Runtime:</strong> {{ movie.runtime or "N/A" }}</li>
+                        <li><strong>Genre:</strong> {{ movie.genre or "N/A" }}</li>
+                        <li><strong>Language:</strong> {{ movie.language or "N/A" }}</li>
+                        <li><strong>Box Office:</strong> {{ movie.box_office_label or "N/A" }}</li>
+                        <li><strong>Director:</strong> {{ movie.director or "N/A" }}</li>
+                        <li><strong>Writer:</strong> {{ movie.writer or "N/A" }}</li>
+                        <li><strong>Actors:</strong> {{ movie.actors or "N/A" }}</li>
+                    </ul>
+                    <div class="ratings-grid">
+                        <div class="rating-card">
+                            <div class="rating-main">{{ average_rating if average_rating is not none else "N/A" }}</div>
+                            <div>Average rating</div>
+                        </div>
+                        {% for source, value in ratings.items() %}
+                        <div class="rating-card">
+                            <strong>{{ source }}</strong>
+                            <div>{{ value if value is not none else "N/A" }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <p class="note">
+                        IMDb ID: {{ movie.imdbID }} • {{ "Cached result" if cached else "Live result" }}
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Plot</h2>
+            <p>{{ movie.plot or "No plot summary available." }}</p>
+        </section>
+
+        <section class="panel">
+            <h2>Similar Movies</h2>
+            {% if similar_movies %}
+            <div class="grid">
+                {% for item in similar_movies %}
+                <a class="card" href="/movie/{{ item.imdbID }}/view">
+                    {% if item.poster and item.poster != "N/A" %}
+                    <img src="{{ item.poster }}" alt="{{ item.title }} poster" />
+                    {% endif %}
+                    <h3>{{ item.title }}</h3>
+                    <p>{{ item.genre or "Unknown genre" }}</p>
+                    <p>Average rating: {{ item.average_rating if item.average_rating is not none else "N/A" }}</p>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p>No similar movies found for this title yet.</p>
+            {% endif %}
+        </section>
+    </main>
+</body>
+
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>MovieDB+ Search</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background-color: #f7f7f7;
+        }
+
+        h1 {
+            margin-bottom: 1rem;
+            color: #222;
+        }
+
+        form {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            background-color: #0069c0;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #00549a;
+        }
+
+        #results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .movie-card {
+            padding: 1rem;
+            background: #fff;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .movie-card img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+
+        .status {
+            margin-bottom: 1rem;
+            color: #444;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>MovieDB+ Search Demo</h1>
+    <p>Enter a movie title to search. Results are cached for 10 minutes.</p>
+    <form id="search-form">
+        <input id="query" type="text" name="q" maxlength="100" placeholder="Search for a movie" required />
+        <button type="submit">Search</button>
+    </form>
+    <div class="status" id="status"></div>
+    <div id="results"></div>
+
+    <script>
+        const form = document.getElementById("search-form");
+        const resultsContainer = document.getElementById("results");
+        const status = document.getElementById("status");
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const query = document.getElementById("query").value.trim();
+            if (!query) {
+                status.textContent = "Please enter a movie title.";
+                return;
+            }
+
+            status.textContent = "Searching...";
+            resultsContainer.innerHTML = "";
+
+            try {
+                const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    status.textContent = data.error || "Something went wrong.";
+                    return;
+                }
+
+                status.textContent = data.cached ? "Results loaded from cache." : "Results from OMDb.";
+
+                if (!data.results || data.results.length === 0) {
+                    status.textContent = data.message || "No results found.";
+                    return;
+                }
+
+                data.results.forEach((movie) => {
+                    const card = document.createElement("div");
+                    card.className = "movie-card";
+                    card.innerHTML = `
+              <h3>${movie.title || "Untitled"} (${movie.year || "N/A"})</h3>
+              ${movie.poster && movie.poster !== "N/A" ? `<img src="${movie.poster}" alt="${movie.title} poster" />` : ""}
+              <p><strong>IMDb ID:</strong> ${movie.imdbID || "N/A"}</p>
+            `;
+                    resultsContainer.appendChild(card);
+                });
+            } catch (error) {
+                status.textContent = "Unable to fetch results.";
+            }
+        });
+    </script>
+</body>
+
+</html>

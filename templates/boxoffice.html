@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>MovieDB+ Box Office</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #f7f7f7;
+        }
+
+        h1 {
+            margin-bottom: 1rem;
+            color: #222;
+        }
+
+        h2 {
+            margin: 0 0 0.25rem 0;
+        }
+
+        header {
+            background: linear-gradient(90deg, #0f172a, #0b63b6);
+            color: #fff;
+            padding: 1.25rem 2rem 1rem 2rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        header .title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        nav {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: #e0ecff;
+            text-decoration: none;
+            padding: 0.4rem 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 999px;
+            font-size: 0.95rem;
+        }
+
+        nav a:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        nav a.active {
+            background: rgba(255, 255, 255, 0.18);
+            color: #fff;
+        }
+
+        main {
+            padding: 1.5rem 2rem 2rem;
+        }
+
+        .panel {
+            background: #fff;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .panel-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .inline-form {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin: 0;
+        }
+
+        .inline-form input[type="text"],
+        .inline-form select {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            background-color: #0069c0;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #00549a;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+
+        .movie-card {
+            padding: 1rem;
+            background: #fff;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .status {
+            margin: 0.5rem 0 1rem 0;
+            color: #444;
+        }
+
+        .note {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            padding: 0.5rem 1rem;
+        }
+
+        .subtle-text {
+            color: #666;
+            font-size: 0.85rem;
+            align-self: center;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="title-row">
+            <div>
+                <h1>MovieDB+ Box Office</h1>
+                <p>Rank top box office results with handy filters.</p>
+            </div>
+            <nav>
+                <a href="/search">Search</a>
+                <a href="/ratings">Ratings</a>
+                <a href="/genres">Genres</a>
+                <a href="/boxoffice" class="active">Box Office</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="panel" id="boxoffice">
+            <div class="panel-header">
+                <div>
+                    <h2>Top Box Office</h2>
+                    <p>Rank by box office with ratings and simple recommendations.</p>
+                </div>
+                <form id="boxoffice-form" class="inline-form">
+                    <input id="boxoffice-query" type="text" placeholder="Keyword (optional)" />
+                    <select id="boxoffice-genre-filter">
+                        <option value="">Any genre</option>
+                        {% for genre in genres %}
+                        <option value="{{ genre }}">{{ genre }}</option>
+                        {% endfor %}
+                    </select>
+                    <select id="boxoffice-sort">
+                        <option value="box_office_desc">Box Office: High to Low</option>
+                        <option value="box_office_asc">Box Office: Low to High</option>
+                        <option value="rating_desc">Rating: High to Low</option>
+                        <option value="rating_asc">Rating: Low to High</option>
+                        <option value="title_asc">Title: A-Z</option>
+                        <option value="title_desc">Title: Z-A</option>
+                    </select>
+                    <button type="submit">Load Ranking</button>
+                </form>
+            </div>
+            <div class="status" id="boxoffice-status"></div>
+            <div class="grid" id="boxoffice-results"></div>
+            <div class="pagination" id="boxoffice-pagination"></div>
+        </section>
+    </main>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+
+        const renderCard = (title, body) => {
+            const card = document.createElement("div");
+            card.className = "movie-card";
+            card.innerHTML = `<h3>${title}</h3>${body}`;
+            return card;
+        };
+
+        const fetchJson = async (url, options = {}) => {
+            const res = await fetch(url, options);
+            const data = await res.json();
+            return { ok: res.ok, data };
+        };
+
+        const createPagerButton = (label, disabled, handler) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = label;
+            btn.disabled = disabled;
+            if (!disabled && handler) {
+                btn.addEventListener("click", handler);
+            }
+            return btn;
+        };
+
+        const renderPaginationControls = (
+            container,
+            { page = 1, hasPrev = false, hasNext = false, onPrev, onNext }
+        ) => {
+            if (!container) return;
+            container.innerHTML = "";
+            if (!hasPrev && !hasNext && page <= 1) return;
+            const label = document.createElement("span");
+            label.className = "subtle-text";
+            label.textContent = `Page ${page}`;
+            container.appendChild(label);
+            container.appendChild(
+                createPagerButton("Previous", !hasPrev, () => onPrev && onPrev())
+            );
+            container.appendChild(
+                createPagerButton("Next", !hasNext, () => onNext && onNext())
+            );
+        };
+
+        const BOX_OFFICE_PAGE_SIZE = 10;
+        let currentBoxOfficeQuery = "";
+        let currentBoxOfficePage = 1;
+        let currentBoxOfficeFilters = {
+            genre: "",
+            sort: "box_office_desc",
+        };
+
+        const loadBoxOffice = async (page = 1) => {
+            const status = $("boxoffice-status");
+            const container = $("boxoffice-results");
+            const pager = $("boxoffice-pagination");
+            status.textContent = "Loading rankings...";
+            container.innerHTML = "";
+            pager.innerHTML = "";
+            const params = new URLSearchParams({ page: page.toString() });
+            params.set("per_page", BOX_OFFICE_PAGE_SIZE.toString());
+            if (currentBoxOfficeQuery) params.set("q", currentBoxOfficeQuery);
+            if (currentBoxOfficeFilters.genre) params.set("genre", currentBoxOfficeFilters.genre);
+            if (currentBoxOfficeFilters.sort) params.set("sort", currentBoxOfficeFilters.sort);
+            const { ok, data } = await fetchJson(`/api/boxoffice/top?${params.toString()}`);
+            if (!ok) {
+                status.textContent = data.error || "Unable to load rankings.";
+                return;
+            }
+            currentBoxOfficePage = data.page || page;
+            const perPage = data.per_page || BOX_OFFICE_PAGE_SIZE;
+            const totalRanked = data.total_count ?? (data.results || []).length;
+            if (!totalRanked) {
+                status.textContent = "No results found for the current filters.";
+            } else if (!(data.results || []).length) {
+                status.textContent = "No results on this page. Try going back.";
+            } else {
+                const totalPages = data.total_pages ?? Math.max(1, Math.ceil(totalRanked / perPage));
+                status.textContent = `${totalRanked} ranked item(s) — page ${currentBoxOfficePage}/${totalPages}${
+                    data.cached ? " (cached dataset)" : ""
+                }`;
+            }
+            (data.results || []).forEach((item, idx) => {
+                const img =
+                    item.poster && item.poster !== "N/A"
+                        ? `<img src="${item.poster}" alt="${item.title} poster" />`
+                        : "";
+                const startIndex = (currentBoxOfficePage - 1) * perPage;
+                const rankNumber = startIndex + idx + 1;
+                container.appendChild(
+                    renderCard(
+                        `#${rankNumber} ${item.title || "Untitled"} (${item.year || "N/A"})`,
+                        `
+                        ${img}
+                        <p><strong>Box Office:</strong> ${item.box_office_label || "N/A"}</p>
+                        <p><strong>Avg Rating:</strong> ${item.average_rating ?? "N/A"}</p>
+                        <p><strong>Director:</strong> ${item.director || "N/A"}</p>
+                        <p><strong>Genre:</strong> ${item.genre || "N/A"}</p>
+                        <p class="note">${item.cached ? "Cached detail" : "Live detail"}</p>
+                    `
+                    )
+                );
+            });
+            renderPaginationControls(pager, {
+                page: currentBoxOfficePage,
+                hasPrev: Boolean(data.has_prev),
+                hasNext: Boolean(data.has_next),
+                onPrev: () => loadBoxOffice(currentBoxOfficePage - 1),
+                onNext: () => loadBoxOffice(currentBoxOfficePage + 1),
+            });
+        };
+
+        $("boxoffice-form").addEventListener("submit", (e) => {
+            e.preventDefault();
+            currentBoxOfficeQuery = $("boxoffice-query").value.trim();
+            currentBoxOfficeFilters = {
+                genre: $("boxoffice-genre-filter").value,
+                sort: $("boxoffice-sort").value,
+            };
+            currentBoxOfficePage = 1;
+            loadBoxOffice(1);
+        });
+
+        loadBoxOffice(1);
+    </script>
+</body>
+
+</html>

@@ -1,130 +1,67 @@
-import json
 import logging
 import os
-from typing import Any, Dict, Optional
+import time
+import uuid
+from typing import Any
 
-import requests
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, g, render_template
 
-try:
-    import redis
-except ImportError:  # pragma: no cover - redis is installed in runtime environment
-    redis = None
+from routes.boxoffice import create_boxoffice_blueprint
+from routes.genre import create_genre_blueprint
+from routes.movie import create_movie_blueprint
+from routes.ratings import create_ratings_blueprint
+from routes.search import create_search_blueprint
+from services.omdb import KNOWN_GENRES
+from utils.cache import initialise_cache
+
 
 def create_app() -> Flask:
     app = Flask(__name__)
+    app.logger.setLevel(logging.INFO)
 
     omdb_api_key = os.getenv("OMDB_API_KEY")
     if not omdb_api_key:
         raise RuntimeError("OMDB_API_KEY environment variable is required")
 
-    cache_client = initialise_cache(app)
+    cache_client = initialise_cache(app.logger)
+
+    app.register_blueprint(create_search_blueprint(cache_client, omdb_api_key))
+    app.register_blueprint(create_movie_blueprint(cache_client, omdb_api_key))
+    app.register_blueprint(create_ratings_blueprint(cache_client, omdb_api_key))
+    app.register_blueprint(create_genre_blueprint(cache_client, omdb_api_key))
+    app.register_blueprint(create_boxoffice_blueprint(cache_client, omdb_api_key))
+
+    @app.before_request
+    def _assign_request_id() -> None:
+        g.request_id = uuid.uuid4().hex
+        g.start_time = time.perf_counter()
+
+    @app.after_request
+    def _add_request_id(response):
+        response.headers["X-Request-ID"] = getattr(g, "request_id", "unknown")
+        return response
 
     @app.route("/")
-    def index() -> str:
+    def index() -> Any:
         return render_template("index.html")
 
     @app.route("/search")
-    def search() -> Any:
-        query = request.args.get("q", "").strip()
-        if not query:
-            return jsonify({"error": "Query parameter 'q' is required."}), 400
-        if len(query) > 100:
-            return jsonify({"error": "Query must be 100 characters or fewer."}), 400
+    def search_page() -> Any:
+        return render_template("index.html")
 
-        cache_key = f"omdb:search:{query.lower()}"
-        cached_payload = fetch_from_cache(cache_client, cache_key)
-        if cached_payload is not None:
-            data = json.loads(cached_payload)
-            data["cached"] = True
-            return jsonify(data)
+    @app.route("/ratings")
+    def ratings_page() -> Any:
+        return render_template("ratings.html")
 
-        try:
-            response = requests.get(
-                "http://www.omdbapi.com/",
-                params={"apikey": omdb_api_key, "s": query},
-                timeout=5,
-            )
-            response.raise_for_status()
-            payload = response.json()
-        except requests.exceptions.RequestException as exc:
-            app.logger.error("OMDb API request failed: %s", exc)
-            return (
-                jsonify(
-                    {
-                        "error": "Unable to contact the movie service at the moment.",
-                    }
-                ),
-                502,
-            )
-        except ValueError:
-            app.logger.error("OMDb API returned invalid JSON")
-            return (
-                jsonify(
-                    {
-                        "error": "Received an unexpected response from the movie service.",
-                    }
-                ),
-                502,
-            )
-        if payload.get("Response", "False") != "True":
-            message = payload.get("Error", "No results found.")
-            result = {"results": [], "message": message, "cached": False}
-            store_in_cache(cache_client, cache_key, result)
-            return jsonify(result)
+    @app.route("/genres")
+    def genres_page() -> Any:
+        return render_template("genres.html", genres=KNOWN_GENRES)
 
-        movies = [
-            {
-                "title": item.get("Title"),
-                "year": item.get("Year"),
-                "poster": item.get("Poster"),
-                "imdbID": item.get("imdbID"),
-            }
-            for item in payload.get("Search", [])
-        ]
-        result = {"results": movies, "total_results": payload.get("totalResults"), "cached": False}
-        store_in_cache(cache_client, cache_key, result)
-        return jsonify(result)
+    @app.route("/boxoffice")
+    def boxoffice_page() -> Any:
+        return render_template("boxoffice.html", genres=KNOWN_GENRES)
 
     return app
-
-
-def initialise_cache(app: Flask) -> Optional["redis.Redis"]:
-    if redis is None:
-        app.logger.warning("redis package is not available; caching disabled")
-        return None
-
-    host = os.getenv("REDIS_HOST", "redis")
-    port = int(os.getenv("REDIS_PORT", "6379"))
-    password = os.getenv("REDIS_PASSWORD")
-
-    client = redis.Redis(host=host, port=port, password=password, decode_responses=True)
-    try:
-        client.ping()
-        app.logger.info("Connected to Redis at %s:%s", host, port)
-        return client
-    except redis.RedisError as exc:
-        app.logger.warning("Redis unavailable (%s); proceeding without cache", exc)
-        return None
-
-
-def fetch_from_cache(cache_client: Optional["redis.Redis"], key: str) -> Optional[str]:
-    if cache_client is None:
-        return None
-    try:
-        return cache_client.get(key)
-    except redis.RedisError as exc:
-        logging.getLogger(__name__).warning("Failed to fetch from Redis: %s", exc)
-        return None
-
-
-def store_in_cache(cache_client: Optional["redis.Redis"], key: str, value: Dict[str, Any]) -> None:
-    if cache_client is None:
-        return
-    try:
-        cache_client.setex(key, 600, json.dumps(value))
-    except redis.RedisError as exc:
-        logging.getLogger(__name__).warning("Failed to store in Redis: %s", exc)
 
 
 app = create_app()

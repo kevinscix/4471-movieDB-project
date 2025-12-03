@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>MovieDB+ Genres</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #f7f7f7;
+        }
+
+        h1 {
+            margin-bottom: 1rem;
+            color: #222;
+        }
+
+        h2 {
+            margin: 0 0 0.25rem 0;
+        }
+
+        header {
+            background: linear-gradient(90deg, #0f172a, #0b63b6);
+            color: #fff;
+            padding: 1.25rem 2rem 1rem 2rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        header .title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        nav {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: #e0ecff;
+            text-decoration: none;
+            padding: 0.4rem 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 999px;
+            font-size: 0.95rem;
+        }
+
+        nav a:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        nav a.active {
+            background: rgba(255, 255, 255, 0.18);
+            color: #fff;
+        }
+
+        main {
+            padding: 1.5rem 2rem 2rem;
+        }
+
+        .panel {
+            background: #fff;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .panel-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .inline-form {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin: 0;
+        }
+
+        .wrap {
+            gap: 0.75rem;
+        }
+
+        .inline-form input[type="text"],
+        .inline-form input[type="number"],
+        .inline-form select {
+            flex: 1;
+            min-width: 160px;
+            padding: 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            background-color: #0069c0;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #00549a;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+
+        .movie-card {
+            padding: 1rem;
+            background: #fff;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .status {
+            margin: 0.5rem 0 1rem 0;
+            color: #444;
+        }
+
+        .note {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            padding: 0.5rem 1rem;
+        }
+
+        .subtle-text {
+            color: #666;
+            font-size: 0.85rem;
+            align-self: center;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="title-row">
+            <div>
+                <h1>MovieDB+ Genres</h1>
+                <p>Lookup movie genres or browse curated genre lists.</p>
+            </div>
+            <nav>
+                <a href="/search">Search</a>
+                <a href="/ratings">Ratings</a>
+                <a href="/genres" class="active">Genres</a>
+                <a href="/boxoffice">Box Office</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="panel" id="genres">
+            <div class="panel-header">
+                <div>
+                    <h2>Genres</h2>
+                    <p>Fetch genres for a movie or browse by genre with filters.</p>
+                </div>
+                <div class="inline-form wrap">
+                    <form id="genres-form" class="inline-form">
+                        <input id="genres-title" type="text" placeholder="Title or IMDb ID" />
+                        <button type="submit">Get Genres</button>
+                    </form>
+                    <form id="genre-browse-form" class="inline-form">
+                        <select id="genre-dropdown">
+                            <option value="">Pick a genre</option>
+                            {% for genre in genres %}
+                            <option value="{{ genre }}">{{ genre }}</option>
+                            {% endfor %}
+                        </select>
+                        <input id="genre-rating" type="number" step="0.1" min="0" max="10" placeholder="Min IMDb rating" />
+                        <input id="genre-language" type="text" placeholder="Language" />
+                        <input id="genre-year" type="text" placeholder="Year" />
+                        <select id="genre-sort">
+                            <option value="rating_desc">Rating: High to Low</option>
+                            <option value="rating_asc">Rating: Low to High</option>
+                            <option value="year_desc">Year: New to Old</option>
+                            <option value="year_asc">Year: Old to New</option>
+                            <option value="title_asc">Title: A-Z</option>
+                            <option value="title_desc">Title: Z-A</option>
+                        </select>
+                        <button type="submit">Browse Genre</button>
+                    </form>
+                </div>
+            </div>
+            <div class="status" id="genre-status"></div>
+            <div class="grid" id="genre-results"></div>
+            <div class="pagination" id="genre-pagination"></div>
+        </section>
+    </main>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+
+        const renderCard = (title, body) => {
+            const card = document.createElement("div");
+            card.className = "movie-card";
+            card.innerHTML = `<h3>${title}</h3>${body}`;
+            return card;
+        };
+
+        const fetchJson = async (url, options = {}) => {
+            const res = await fetch(url, options);
+            const data = await res.json();
+            return { ok: res.ok, data };
+        };
+
+        const createPagerButton = (label, disabled, handler) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = label;
+            btn.disabled = disabled;
+            if (!disabled && handler) {
+                btn.addEventListener("click", handler);
+            }
+            return btn;
+        };
+
+        const renderPaginationControls = (
+            container,
+            { page = 1, hasPrev = false, hasNext = false, onPrev, onNext }
+        ) => {
+            if (!container) return;
+            container.innerHTML = "";
+            if (!hasPrev && !hasNext && page <= 1) return;
+            const label = document.createElement("span");
+            label.className = "subtle-text";
+            label.textContent = `Page ${page}`;
+            container.appendChild(label);
+            container.appendChild(
+                createPagerButton("Previous", !hasPrev, () => onPrev && onPrev())
+            );
+            container.appendChild(
+                createPagerButton("Next", !hasNext, () => onNext && onNext())
+            );
+        };
+
+        $("genres-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const title = $("genres-title").value.trim();
+            const status = $("genre-status");
+            const container = $("genre-results");
+            status.textContent = "Loading genres...";
+            container.innerHTML = "";
+            const params = new URLSearchParams();
+            if (title) params.set("title", title);
+            const { ok, data } = await fetchJson(`/api/genres?${params.toString()}`);
+            if (!ok) {
+                status.textContent = data.error || "Unable to fetch genres.";
+                return;
+            }
+            status.textContent = data.cached ? "Genres loaded from cache." : "Genres fetched.";
+            container.appendChild(
+                renderCard(`${data.movie?.title || "Unknown"} (${data.movie?.year || "N/A"})`, `
+                    <p><strong>Genres:</strong> ${(data.genres || []).join(", ") || "N/A"}</p>
+                    <p><strong>IMDb ID:</strong> ${data.movie?.imdbID || "N/A"}</p>
+                `)
+            );
+        });
+
+        let currentGenreBrowse = {
+            name: "",
+            rating: "",
+            language: "",
+            year: "",
+            sort: "rating_desc",
+        };
+        let currentGenrePage = 1;
+
+        const loadGenreResults = async (page = 1) => {
+            if (!currentGenreBrowse.name) return;
+            const status = $("genre-status");
+            const container = $("genre-results");
+            const pager = $("genre-pagination");
+            status.textContent = "Browsing genre...";
+            container.innerHTML = "";
+            pager.innerHTML = "";
+            const params = new URLSearchParams({ page: page.toString() });
+            ["rating", "language", "year", "sort"].forEach((key) => {
+                const value = currentGenreBrowse[key];
+                if (value) params.set(key, value);
+            });
+            const { ok, data } = await fetchJson(
+                `/api/genre/${encodeURIComponent(currentGenreBrowse.name)}?${params.toString()}`
+            );
+            if (!ok) {
+                status.textContent = data.error || "Unable to browse genre.";
+                return;
+            }
+            currentGenrePage = data.page || page;
+            const totalCount = data.total_count ?? 0;
+            const totalPages = data.total_pages ?? Math.max(1, Math.ceil(totalCount / (data.per_page || 10)));
+            if (!totalCount) {
+                status.textContent = "No curated results found for this genre.";
+            } else {
+                status.textContent = `${totalCount} curated result(s) — page ${currentGenrePage}/${totalPages}${
+                    data.cached ? " (cached)" : ""
+                }`;
+            }
+            (data.results || []).forEach((m) => {
+                const img =
+                    m.poster && m.poster !== "N/A"
+                        ? `<img src="${m.poster}" alt="${m.title} poster" />`
+                        : "";
+                const detailLink = m.imdbID
+                    ? `<p><a href="/movie/${m.imdbID}/view">View details</a></p>`
+                    : "";
+                container.appendChild(
+                    renderCard(`${m.title || "Untitled"} (${m.year || "N/A"})`, `
+                        ${img}
+                        <p><strong>Genres:</strong> ${m.genres || "N/A"}</p>
+                        <p><strong>Average Rating:</strong> ${m.average_rating ?? m.imdbRating ?? "N/A"}</p>
+                        <p><strong>Box Office:</strong> ${m.boxOffice || "N/A"}</p>
+                        <p><strong>Language:</strong> ${m.language || "N/A"}</p>
+                        ${detailLink}
+                    `)
+                );
+            });
+            renderPaginationControls(pager, {
+                page: currentGenrePage,
+                hasPrev: Boolean(data.has_prev),
+                hasNext: Boolean(data.has_next),
+                onPrev: () => loadGenreResults(currentGenrePage - 1),
+                onNext: () => loadGenreResults(currentGenrePage + 1),
+            });
+        };
+
+        $("genre-browse-form").addEventListener("submit", (e) => {
+            e.preventDefault();
+            const genre = $("genre-dropdown").value;
+            if (!genre) {
+                $("genre-status").textContent = "Please choose a genre to browse.";
+                return;
+            }
+            const rating = $("genre-rating").value.trim();
+            const language = $("genre-language").value.trim();
+            const year = $("genre-year").value.trim();
+            const sort = $("genre-sort").value;
+
+            currentGenreBrowse = {
+                name: genre,
+                rating,
+                language,
+                year,
+                sort,
+            };
+            currentGenrePage = 1;
+            loadGenreResults(1);
+        });
+    </script>
+</body>
+
+</html>
