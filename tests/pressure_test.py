@@ -4,6 +4,11 @@ MovieDB Pressure Test using Locust
 This script simulates realistic user behavior on the MovieDB application,
 testing various endpoints with different load patterns.
 
+Requirements:
+    - OMDB_API_KEY environment variable (required)
+    - TMDB_API_KEY environment variable (optional but recommended)
+      Note: Genre browsing and box office genre filtering require TMDb API
+
 Usage - Local Testing:
     # Web UI mode (interactive dashboard at http://localhost:8089)
     locust -f tests/pressure_test.py --host http://localhost:8080
@@ -82,13 +87,14 @@ class MovieDBUser(HttpUser):
         "Comedy",
         "Drama",
         "Horror",
-        "Sci-Fi",
+        "Science Fiction",  # TMDb uses "Science Fiction" instead of "Sci-Fi"
         "Thriller",
         "Adventure",
         "Animation",
         "Crime",
         "Fantasy",
         "Romance",
+        "Mystery",  # Added for better coverage
     ]
 
     @task(5)
@@ -152,24 +158,35 @@ class MovieDBUser(HttpUser):
     @task(2)
     def browse_by_genre(self):
         """
-        Test the genre browsing endpoint.
+        Test the genre browsing endpoint (TMDb-powered).
         Weight: 2 (moderate usage)
+
+        Note: This endpoint requires TMDB_API_KEY to be configured.
         """
         genre = random.choice(self.GENRES)
         params = {
-            "page": random.randint(1, 3),
+            "page": random.randint(1, 5),  # TMDb supports up to 10 pages
         }
 
         # Randomly add filters (40% chance)
         if random.random() < 0.4:
             params["sort"] = random.choice([
                 "rating_desc",
+                "rating_asc",
                 "year_desc",
-                "title_asc"
+                "year_asc",
+                "title_asc",
+                "title_desc",
+                "boxoffice_desc",  # TMDb-specific sort option
+                "boxoffice_asc"    # TMDb-specific sort option
             ])
 
         if random.random() < 0.2:
             params["year"] = random.randint(2000, 2024)
+
+        # Test language filtering with ISO 639-1 codes (30% chance)
+        if random.random() < 0.3:
+            params["language"] = random.choice(["en", "es", "fr", "de", "ja"])
 
         with self.client.get(
             f"/api/genre/{genre}",
@@ -179,10 +196,11 @@ class MovieDBUser(HttpUser):
         ) as response:
             if response.status_code == 200:
                 data = response.json()
-                if "results" in data:
+                # Validate TMDb response structure
+                if "results" in data and "total_pages" in data and "total_count" in data:
                     response.success()
                 else:
-                    response.failure(f"No results in response: {data}")
+                    response.failure(f"Invalid response structure: {data}")
             else:
                 response.failure(f"Got status {response.status_code}")
 
@@ -219,13 +237,16 @@ class MovieDBUser(HttpUser):
     @task(1)
     def view_box_office(self):
         """
-        Test the box office endpoint.
+        Test the box office endpoint (TMDb-enhanced).
         Weight: 1 (less common, more resource-intensive)
+
+        Note: per_page is fixed at 10, max 10 pages (100 results total).
+        Genre filtering requires TMDB_API_KEY to be configured.
         """
         params = {
-            "page": 1,
-            "per_page": 10,
+            "page": random.randint(1, 3),  # Test different pages (max is 10)
         }
+        # Note: per_page is fixed at 10 by the backend, no need to specify
 
         # Randomly add filters (30% chance)
         if random.random() < 0.3:
@@ -245,10 +266,11 @@ class MovieDBUser(HttpUser):
         ) as response:
             if response.status_code == 200:
                 data = response.json()
-                if "results" in data or "movies" in data:
+                # Validate new TMDb-enhanced response structure
+                if "results" in data and "chart" in data and "recommended" in data:
                     response.success()
                 else:
-                    response.failure(f"No results in response: {data}")
+                    response.failure(f"Invalid response structure: {data}")
             else:
                 response.failure(f"Got status {response.status_code}")
 
